@@ -90,24 +90,50 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   DEBUG_PRINTLN("Message arrived on topic: " + String(topic));
   DEBUG_PRINTLN("Message content: " + message);
 
-  if (message.startsWith("set:sensor_type=")) {
+  if (message.startsWith("set:nc_sensor=")) {
     int equalIndex = message.indexOf('=');
     if (equalIndex > 0) {
       String valStr = message.substring(equalIndex + 1);
       valStr.trim();
 
-      setSensorType = valStr.toInt() != 0;  // safer conversion: 0=false, anything else=true
+      NC_Sensor = valStr.toInt() != 0;  // safer conversion: 0=false, anything else=true
 
       // Save to Preferences as a boolean
       preferences.begin("WaterInfo", false);
-      preferences.putBool("sensor_type", setSensorType);
+      preferences.putBool("nc_sensor", NC_Sensor);
       preferences.end();
 
-      Serial.print("Saved sensor_type: ");
-      Serial.println(setSensorType ? "true" : "false");
+      Serial.print("Saved nc_sensor: ");
+      Serial.println(NC_Sensor ? "true" : "false");
+
+      if (client.connected()) {
+        bool acLineState = digitalRead(AC_LINE_PIN);
+        char hb_data[64];
+        long totalWaterinLiter = totalWater*1000;
+        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:%d,TW:%d,F:%ld,connected",
+          DEVICE_ID,
+          acLineState ? 1 : 0,
+          NC_Sensor ? 1 : 0,
+          totalWaterinLiter,
+          K
+        );
+
+        client.publish(mqtt_pub_topic, hb_data);
+        DEBUG_PRINTLN("Heartbeat sent Successfully");
+
+        #if Fast_LED
+        leds[0] = CRGB::Blue;
+        FastLED.show();
+        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+        leds[0] = CRGB::Black;
+        FastLED.show();
+        #endif
+      } else {
+        DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
+      }
+
     }
   }
-
 
   if (message.startsWith("set:water")) {
     int equalIndex = message.indexOf('=');
@@ -115,7 +141,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       String valStr = message.substring(equalIndex + 1);
       valStr.trim();
 
-      totalWater = valStr.toFloat();
+      long setTotalWater = valStr.toInt(); // Read as integer (in Liters)
+      totalWater = setTotalWater / 1000.0; // Convert to MeterCube
 
       // Save to Preferences
       preferences.begin("WaterInfo", false);
@@ -124,6 +151,32 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       Serial.println("Saved totalWater: " + String(totalWater));
 
       setWaterValue = true;
+
+      if (client.connected()) {
+        bool acLineState = digitalRead(AC_LINE_PIN);
+        char hb_data[64];
+        long totalWaterinLiter = totalWater*1000;
+        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:%d,TW:%d,F:%ld,connected",
+          DEVICE_ID,
+          acLineState ? 1 : 0,
+          NC_Sensor ? 1 : 0,
+          totalWaterinLiter,
+          K
+        );
+
+        client.publish(mqtt_pub_topic, hb_data);
+        DEBUG_PRINTLN("Heartbeat sent Successfully");
+
+        #if Fast_LED
+        leds[0] = CRGB::Blue;
+        FastLED.show();
+        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+        leds[0] = CRGB::Black;
+        FastLED.show();
+        #endif
+      } else {
+        DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
+      }
     }
   }
 
@@ -144,10 +197,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       if (client.connected()) {
         bool acLineState = digitalRead(AC_LINE_PIN);
         char hb_data[64];
-        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:0,TW:%d,F:%d,connected",
+        long totalWaterinLiter = totalWater*1000;
+        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:%d,TW:%d,F:%ld,connected",
           DEVICE_ID,
           acLineState ? 1 : 0,
-          (int)totalWater,
+          NC_Sensor ? 1 : 0,
+          totalWaterinLiter,
           K
         );
 
@@ -169,12 +224,51 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   if(message == "query:water"){
     // Respond with current water value
-    char waterData[32];
-    snprintf(waterData, sizeof(waterData), "%s,Water:%d", DEVICE_ID, (int)totalWater);
-    client.publish(mqtt_pub_topic, waterData);
+    if(client.connected()) {
+      char waterData[32];
+      snprintf(waterData, sizeof(waterData), "%s,water:%ld", DEVICE_ID, (long)totalWater*1000);
+      client.publish(mqtt_pub_topic, waterData);
+      Serial.println("Sent water data: " + String(waterData));
+    }
   }
 
+  if(message == "query:flow"){
+    // Respond with current water value
+    if(client.connected()) {
+      char flowData[32];
+      snprintf(flowData, sizeof(flowData), "%s,flow:%d", DEVICE_ID, K);
+      client.publish(mqtt_pub_topic, flowData);
+      Serial.println("Sent flow data: " + String(flowData));
+    }
+  }
 
+  if(message == "query:heartbeat"){
+    if (client.connected()) {
+      bool acLineState = digitalRead(AC_LINE_PIN);
+      char hb_data[64];
+      long totalWaterinLiter = totalWater*1000;
+      snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:%d,TW:%d,F:%ld,connected",
+        DEVICE_ID,
+        acLineState ? 1 : 0,
+        NC_Sensor ? 1 : 0,
+        totalWaterinLiter,
+        K
+      );
+
+      client.publish(mqtt_pub_topic, hb_data);
+      DEBUG_PRINTLN("Heartbeat sent Successfully");
+
+      #if Fast_LED
+      leds[0] = CRGB::Blue;
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+      leds[0] = CRGB::Black;
+      FastLED.show();
+      #endif
+    } else {
+      DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
+    }
+  }
   
   if (message == "ping") {
     DEBUG_PRINTLN("Request for ping");
@@ -235,7 +329,7 @@ void wifiResetTask(void *param) {
           vTaskSuspend(networkTaskHandle);
           vTaskSuspend(mainTaskHandle);
           wm.resetSettings();
-          wm.autoConnect("DMA_Smart_Switch");
+          wm.autoConnect("DMA_AMR_V-5.0");
           ESP.restart();
         }
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -386,22 +480,24 @@ void mainTask(void *param) {
       lcd.print(totalWater,1);
     }
 
-    bool acLineState = digitalRead(AC_LINE_PIN);
-
+    
     // PUB = 1146002409090027,C:1,S:0,TW:37295200,F:100,connected
     static unsigned long last_hb_send_time = 0;
     unsigned long now = millis();
-
+    
     // **Send Heartbeat Every HB_INTERVAL**
     if (now - last_hb_send_time >= HB_INTERVAL) {
       last_hb_send_time = now;
-
+      
       if (client.connected()) {
+        bool acLineState = digitalRead(AC_LINE_PIN);
         char hb_data[64];
-        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:0,TW:%d,F:%d,connected",
+        long totalWaterinLiter = totalWater*1000;
+        snprintf(hb_data,sizeof(hb_data), "%s,C:%d,S:%d,TW:%d,F:%ld,connected",
           DEVICE_ID,
           acLineState ? 1 : 0,
-          (int)totalWater,
+          NC_Sensor ? 1 : 0,
+          totalWaterinLiter,
           K
         );
 
@@ -465,8 +561,8 @@ void setup() {
   Serial.println("Restored totalWater: " + String(totalWater));
   K = preferences.getInt("flow", 100);
   Serial.println("Restored K (flow): " + String(K));
-  NC_Sensor = preferences.getBool("sensor_type", true); // Default to true if
-  Serial.println("Restored sensor_type: " + String(NC_Sensor ? "true" : "false"));
+  NC_Sensor = preferences.getBool("nc_sensor", false);
+  Serial.println("Restored NC_Sensor: " + String(NC_Sensor ? "true" : "false"));
   preferences.end();
   
   if(NC_Sensor == true){
@@ -475,12 +571,44 @@ void setup() {
     for (int i = 0; i <= 9; i++) {
       rawValue[i] = 4095;
     }
+
+    long sum = 0;
+    for (int i = 0; i < 10; i++) {
+      rawValue[i] = analogRead(Analog_Pin);
+      sum += rawValue[i];
+      delay(250);
+    }
+    avgValue = sum / 10;   // averaged analog value
+
+    if(avgValue < 1000){
+      swt = true;
+    }
+    else{
+      swt = false;
+    }
   }
   else{
+
     // Clear rawValue buffer
     for (int i = 0; i <= 9; i++) {
       rawValue[i] = 0;
     }
+
+    long sum = 0;
+    for (int i = 0; i < 10; i++) {
+      rawValue[i] = analogRead(Analog_Pin);
+      sum += rawValue[i];
+      delay(250);
+    }
+    avgValue = sum / 10;   // averaged analog value
+
+    if(avgValue > 3000){
+      swt = true;
+    }
+    else{
+      swt = false;
+    }
+
   } 
 
 
