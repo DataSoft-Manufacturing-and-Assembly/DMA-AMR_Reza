@@ -34,15 +34,15 @@ int rawValue[10];            // buffer for 12 samples
 
 void otaTask(void *param);
 
-// #define Analog_Pin 35  // Analog pin for ESP32
-// #define AC_LINE_PIN 34  // Pin to read AC line status
-// #define WIFI_RESET_BUTTON_PIN 0  // Pin for WiFi reset button
-// #define LCD_BACKLIGHT_PIN 14  // Pin for LCD backlight control
-
-#define Analog_Pin 39  // Analog pin for ESP32
+#define Analog_Pin 35  // Analog pin for ESP32
 #define AC_LINE_PIN 34  // Pin to read AC line status
-#define WIFI_RESET_BUTTON_PIN 35  // Pin for WiFi reset button
+#define WIFI_RESET_BUTTON_PIN 0  // Pin for WiFi reset button
 #define LCD_BACKLIGHT_PIN 14  // Pin for LCD backlight control
+
+// #define Analog_Pin 39  // Analog pin for ESP32
+// #define AC_LINE_PIN 34  // Pin to read AC line status
+// #define WIFI_RESET_BUTTON_PIN 35  // Pin for WiFi reset button
+// #define LCD_BACKLIGHT_PIN 14  // Pin for LCD backlight control
 
 // Configuration Section
 #define Fast_LED true
