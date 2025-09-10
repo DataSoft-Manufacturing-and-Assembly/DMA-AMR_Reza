@@ -2,7 +2,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>  // WiFiManager library
 #include <PubSubClient.h>
-// #include <FastLED.h>
+#include <FastLED.h>
 #include <HTTPClient.h>
 
 #include <Preferences.h>
@@ -19,6 +19,14 @@ bool NC_Sensor = false;
 bool setWaterValue = false;
 bool setKValue = false;
 
+int prevAvgValue = -1;
+int prevK = -1;
+float prevTotalWater = -1.0;
+
+unsigned long backlightTimer = 0;
+bool backlightOn = false;
+#define BACKLIGHT_TIME 10 * 1000
+
 // Sampling setup
 const int sampleInterval = 500;     // sample every 500 ms
 unsigned long lastNow = 0; 
@@ -26,13 +34,20 @@ int rawValue[10];            // buffer for 12 samples
 
 void otaTask(void *param);
 
-#define Analog_Pin 35  // Analog pin for ESP32
+// #define Analog_Pin 35  // Analog pin for ESP32
+// #define AC_LINE_PIN 34  // Pin to read AC line status
+// #define WIFI_RESET_BUTTON_PIN 0  // Pin for WiFi reset button
+// #define LCD_BACKLIGHT_PIN 14  // Pin for LCD backlight control
+
+#define Analog_Pin 39  // Analog pin for ESP32
 #define AC_LINE_PIN 34  // Pin to read AC line status
-#define WIFI_RESET_BUTTON_PIN 0  // Pin for WiFi reset button
+#define WIFI_RESET_BUTTON_PIN 35  // Pin for WiFi reset button
+#define LCD_BACKLIGHT_PIN 14  // Pin for LCD backlight control
 
 // Configuration Section
-#define Fast_LED false
-#define DEBUG_MODE true
+#define Fast_LED true
+
+#define DEBUG_MODE false
 #define DEBUG_PRINT(x)  if (DEBUG_MODE) { Serial.print(x); }
 #define DEBUG_PRINTLN(x) if (DEBUG_MODE) { Serial.println(x); }
 
@@ -42,8 +57,8 @@ void otaTask(void *param);
 #if CHANGE_DEICE_ID
     #define WORK_PACKAGE "1146"
     #define GW_TYPE "05"
-    #define FIRMWARE_UPDATE_DATE "250904" 
-    #define DEVICE_SERIAL "REZA1"
+    #define FIRMWARE_UPDATE_DATE "250910" 
+    #define DEVICE_SERIAL "0001"
     //#define DEVICE_ID WORK_PACKAGE GW_TYPE FIRMWARE_UPDATE_DATE DEVICE_SERIAL
 #endif
 

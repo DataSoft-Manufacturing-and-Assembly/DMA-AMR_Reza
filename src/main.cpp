@@ -13,14 +13,16 @@ bool wifiResetFlag = false;
 
 // Function to reconnect to WiFi
 void reconnectWiFi() {
-  // digitalWrite(LED_PIN, HIGH);
+  #if Fast_LED
+    leds[0] = CRGB::Red;
+    FastLED.show();
+  #endif
   if (WiFi.status() != WL_CONNECTED) {
     if (wifiAttemptCount > 0) {
       DEBUG_PRINTLN("Attempting WiFi connection...");
       WiFi.begin();  // Use saved credentials
       wifiAttemptCount--;
       DEBUG_PRINTLN("Remaining WiFi attempts: " + String(wifiAttemptCount));
-      // vTaskDelay(WIFI_ATTEMPT_DELAY / portTICK_PERIOD_MS);
       vTaskDelay(pdMS_TO_TICKS(WIFI_ATTEMPT_DELAY));
     } else if (wifiWaitCount > 0) {
       wifiWaitCount--;
@@ -44,8 +46,8 @@ void reconnectWiFi() {
 void reconnectMQTT() {
   if (!client.connected()) {
     #if Fast_LED
-    leds[0] = CRGB::Yellow;
-    FastLED.show();
+      leds[0] = CRGB::Yellow;
+      FastLED.show();
     #endif
 
     char clientId[24];
@@ -57,8 +59,8 @@ void reconnectMQTT() {
         DEBUG_PRINTLN("MQTT connected");
 
         #if Fast_LED
-        leds[0] = CRGB::Black;
-        FastLED.show();
+          leds[0] = CRGB::Black;
+          FastLED.show();
         #endif
         char topic[48];
 
@@ -83,6 +85,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
+  #if Fast_LED
+    leds[0] = CRGB::Blue;
+    FastLED.show();
+    vTaskDelay(pdMS_TO_TICKS(250)); // Short delay to indicate status
+    leds[0] = CRGB::Black;
+    FastLED.show();
+  #endif
   // Remove all spaces (before, after, and in the middle)
   message.trim();
   message.replace(" ", "");
@@ -122,11 +131,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         DEBUG_PRINTLN("Heartbeat sent Successfully");
 
         #if Fast_LED
-        leds[0] = CRGB::Blue;
-        FastLED.show();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
-        leds[0] = CRGB::Black;
-        FastLED.show();
+          leds[0] = CRGB::Blue;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
         #endif
       } else {
         DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
@@ -168,11 +177,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         DEBUG_PRINTLN("Heartbeat sent Successfully");
 
         #if Fast_LED
-        leds[0] = CRGB::Blue;
-        FastLED.show();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
-        leds[0] = CRGB::Black;
-        FastLED.show();
+          leds[0] = CRGB::Blue;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
         #endif
       } else {
         DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
@@ -194,6 +203,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       preferences.end();
       Serial.println("Saved totalWater: " + String(totalWater));
 
+      if(prevK != K){
+        prevK = K;
+        lcd.setCursor(12, 1);
+        lcd.print(K);
+      }
+
       if (client.connected()) {
         bool acLineState = digitalRead(AC_LINE_PIN);
         char hb_data[64];
@@ -210,11 +225,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         DEBUG_PRINTLN("Heartbeat sent Successfully");
 
         #if Fast_LED
-        leds[0] = CRGB::Blue;
-        FastLED.show();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
-        leds[0] = CRGB::Black;
-        FastLED.show();
+          leds[0] = CRGB::Blue;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
         #endif
       } else {
         DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
@@ -259,11 +274,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       DEBUG_PRINTLN("Heartbeat sent Successfully");
 
       #if Fast_LED
-      leds[0] = CRGB::Blue;
-      FastLED.show();
-      vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
-      leds[0] = CRGB::Black;
-      FastLED.show();
+        leds[0] = CRGB::Blue;
+        FastLED.show();
+        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+        leds[0] = CRGB::Black;
+        FastLED.show();
       #endif
     } else {
       DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
@@ -271,6 +286,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
   
   if (message == "ping") {
+    #if Fast_LED
+      vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+      leds[0] = CRGB::Green;
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(250)); // Short delay to indicate status
+      leds[0] = CRGB::Black;
+      FastLED.show();
+    #endif
     DEBUG_PRINTLN("Request for ping");
     char pingData[100]; // Increased size for additional info
     snprintf(pingData, sizeof(pingData), "%s,%s,%s,%d,%d",
@@ -283,6 +306,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
 
   if (message == "update_firmware") {
+    #if Fast_LED
+      vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
+      leds[0] = CRGB::DeepPink;
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(250)); // Short delay to indicate status
+      leds[0] = CRGB::Black;
+      FastLED.show();
+    #endif
     if (otaTaskHandle == NULL) {
       xTaskCreatePinnedToCore(otaTask, "OTA Task", 8*1024, NULL, 1, &otaTaskHandle, 1);
     } else {
@@ -318,14 +349,13 @@ void wifiResetTask(void *param) {
       unsigned long pressStartTime = millis();
       DEBUG_PRINTLN("Button Pressed....");
 
-      #if Fast_LED
-      leds[0] = CRGB::Blue;
-      FastLED.show();
-      #endif
-
       while (digitalRead(WIFI_RESET_BUTTON_PIN) == LOW) {
         if (millis() - pressStartTime >= 5000) {
           DEBUG_PRINTLN("5 seconds holding time reached, starting WiFiManager...");
+          #if Fast_LED
+            leds[0] = CRGB::Green;
+            FastLED.show();
+          #endif
           vTaskSuspend(networkTaskHandle);
           vTaskSuspend(mainTaskHandle);
           wm.resetSettings();
@@ -334,11 +364,6 @@ void wifiResetTask(void *param) {
         }
         vTaskDelay(pdMS_TO_TICKS(100));
       }
-    } else {
-      #if Fast_LED
-      leds[0] = CRGB::Black;
-      FastLED.show();
-      #endif
     }
 
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -404,16 +429,64 @@ void mainTask(void *param) {
 
   for (;;) {
 
+    if (digitalRead(LCD_BACKLIGHT_PIN) == LOW) {
+      #if Fast_LED
+        leds[0] = CRGB::WhiteSmoke;
+        FastLED.show();
+        vTaskDelay(pdMS_TO_TICKS(250)); // Short delay to indicate status
+        leds[0] = CRGB::Black;
+        FastLED.show();
+      #endif
+      lcd.clear();
+      lcd.backlight();
+      lcd.setCursor(0, 0);
+      lcd.print("AMR Version-5.0");
+      lcd.setCursor(1, 1);
+      lcd.print("Powered by DMA");
+
+      delay(2000); // short pause to show startup screen
+
+      // Display sensor data
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("TW: ");
+      char totalWaterBuffer[10];
+      sprintf(totalWaterBuffer, "%-7.1f", totalWater);
+      lcd.setCursor(3, 0);
+      lcd.print(totalWaterBuffer);
+      lcd.print(" m3");
+
+      lcd.setCursor(0, 1);
+      lcd.print("Raw:");
+      char avgValueBuffer[5];
+      sprintf(avgValueBuffer, "%-4d", avgValue);
+      lcd.setCursor(4, 1);
+      lcd.print(avgValueBuffer);
+
+      lcd.setCursor(9, 1);
+      lcd.print(" K:");
+      char kBuffer[4];
+      sprintf(kBuffer, "%-3d", K);
+      lcd.setCursor(12, 1);
+      lcd.print(kBuffer);
+
+      // Start backlight timer
+      backlightOn = true;
+      backlightTimer = millis();
+    }
+
+    // Auto turn-off after BACKLIGHT_TIME
+    if (backlightOn && (millis() - backlightTimer >= BACKLIGHT_TIME)) {
+      lcd.noBacklight();
+      backlightOn = false;
+    }
+
+    // Sampling Logic
     unsigned long currentMillis = millis();
     if (currentMillis - lastNow >= sampleInterval) {
       lastNow = currentMillis;
 
       rawValue[9] = analogRead(Analog_Pin);
-      lcd.setCursor(0, 1);
-      lcd.print("     "); // Clear previous value
-      lcd.setCursor(0, 1);
-      lcd.print(rawValue[9]);
-
       // Shift array left by 1
       for (int i = 0; i < 9; i++) {
         rawValue[i] = rawValue[i + 1];
@@ -424,13 +497,17 @@ void mainTask(void *param) {
         sum += rawValue[i];
       }
       avgValue = sum / 10;   // averaged analog value
-
-      rawValue[9] = analogRead(Analog_Pin);
-      lcd.setCursor(5, 1);
-      lcd.print("     "); // Clear previous value
-      lcd.setCursor(5, 1);
-      lcd.print(avgValue);
-
+      
+      lcd.setCursor(0, 1);
+      lcd.print("Raw:");
+      if(prevAvgValue != avgValue){
+        prevAvgValue = avgValue;
+        char avgValueBuffer[5];
+        sprintf(avgValueBuffer, "%-4d", avgValue);
+        lcd.setCursor(4, 1);
+        lcd.print(avgValueBuffer);
+      }
+      
       if(NC_Sensor == false){
         if(avgValue > 3000 && swt == false){
         swt = true;
@@ -441,10 +518,25 @@ void mainTask(void *param) {
         preferences.end();
         Serial.println("Saved totalWater: " + String(totalWater));
 
+        #if Fast_LED
+          leds[0] = CRGB::Green;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
+        #endif
+
         lcd.setCursor(0, 0);
-        lcd.print("TW: ");
-        lcd.setCursor(4, 0);
-        lcd.print(totalWater,1);
+        lcd.print("TW:            ");
+        if(totalWater != prevTotalWater){
+          prevTotalWater = totalWater;
+          char totalWaterBuffer[10];
+          sprintf(totalWaterBuffer, "%-7.1f", totalWater);
+          lcd.setCursor(3, 0);
+          lcd.print(totalWaterBuffer);
+          lcd.print(" m3");
+        }
+        
       }
       else if(avgValue < 1000 && swt == true){
         swt = false;
@@ -461,10 +553,24 @@ void mainTask(void *param) {
         preferences.end();
         Serial.println("Saved totalWater: " + String(totalWater));
 
+        #if Fast_LED
+          leds[0] = CRGB::Green;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
+        #endif
+
         lcd.setCursor(0, 0);
-        lcd.print("TW: ");
-        lcd.setCursor(4, 0);
-        lcd.print(totalWater,1);
+        lcd.print("TW:            ");
+        if(totalWater != prevTotalWater){
+          prevTotalWater = totalWater;
+          char totalWaterBuffer[10];
+          sprintf(totalWaterBuffer, "%-7.1f", totalWater);
+          lcd.setCursor(3, 0);
+          lcd.print(totalWaterBuffer);
+          lcd.print(" m3");
+        }
       }
       else if(avgValue > 3000 && swt == true){
         swt = false;
@@ -472,12 +578,20 @@ void mainTask(void *param) {
     }
   }
 
+    // Update water value if set command received
     if(setWaterValue == true){
       setWaterValue = false;
+      lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("TW: ");
-      lcd.setCursor(4, 0);
-      lcd.print(totalWater,1);
+      lcd.print("TW:            ");
+      if(totalWater != prevTotalWater){
+        prevTotalWater = totalWater;
+        char totalWaterBuffer[10];
+        sprintf(totalWaterBuffer, "%-7.1f", totalWater);
+        lcd.setCursor(3, 0);
+        lcd.print(totalWaterBuffer);
+        lcd.print(" m3");
+      }
     }
 
     
@@ -505,11 +619,11 @@ void mainTask(void *param) {
         DEBUG_PRINTLN("Heartbeat sent Successfully");
 
         #if Fast_LED
-        leds[0] = CRGB::Blue;
-        FastLED.show();
-        vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to indicate status
-        leds[0] = CRGB::Black;
-        FastLED.show();
+          leds[0] = CRGB::Green;
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(250)); // Short delay to indicate status
+          leds[0] = CRGB::Black;
+          FastLED.show();
         #endif
       } else {
         DEBUG_PRINTLN("Failed to publish Heartbeat on MQTT");
@@ -548,13 +662,15 @@ void setup() {
   DEBUG_PRINTLN(DEVICE_ID);
   
   #if Fast_LED
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  leds[0] = CRGB::Black;
-  FastLED.show();
+    FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+    leds[0] = CRGB::Black;
+    FastLED.show();
   #endif
 
   pinMode(WIFI_RESET_BUTTON_PIN, INPUT_PULLUP);
   pinMode(Analog_Pin, INPUT);
+  pinMode(AC_LINE_PIN, INPUT);
+  pinMode(LCD_BACKLIGHT_PIN, INPUT_PULLUP);
 
   preferences.begin("WaterInfo", false);
   totalWater = preferences.getFloat("totalWater", 0.0);
@@ -622,14 +738,43 @@ void setup() {
   lcd.setCursor(1, 1);
   lcd.print("Powered by DMA");
 
-  delay(3000);
+  delay(2000);
 
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("TW: ");
-  lcd.setCursor(4, 0);
-  lcd.print(totalWater,1);
+  lcd.print("TW:            ");
+  if(totalWater != prevTotalWater){
+    prevTotalWater = totalWater;
+    char totalWaterBuffer[10];
+    sprintf(totalWaterBuffer, "%-7.1f", totalWater);
+    lcd.setCursor(3, 0);
+    lcd.print(totalWaterBuffer);
+    lcd.print(" m3");
+  }
+  
   lcd.setCursor(0, 1);
+  lcd.print("Raw:");
+  if(prevAvgValue != avgValue){
+    prevAvgValue = avgValue;
+    char avgValueBuffer[5];
+    sprintf(avgValueBuffer, "%-4d", avgValue);
+    lcd.setCursor(4, 1);
+    lcd.print(avgValueBuffer);
+  }
+
+  lcd.setCursor(9, 1);
+  lcd.print(" K:");
+  if(prevK != K){
+    prevK = K;
+    char kBuffer[4];
+    sprintf(kBuffer, "%-3d", K);
+    lcd.setCursor(12, 1);
+    lcd.print(kBuffer);
+  }
+
+  delay(3000);
+  lcd.noBacklight();
+
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(mqttCallback);
