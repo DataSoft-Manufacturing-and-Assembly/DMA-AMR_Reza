@@ -12,46 +12,17 @@ TaskHandle_t otaTaskHandle = NULL;
 bool wifiResetFlag = false;
 
 // Function to reconnect to WiFi
-// void reconnectWiFi() {
-//   #if Fast_LED
-//     leds[0] = CRGB::Red;
-//     FastLED.show();
-//   #endif
-//   if (WiFi.status() != WL_CONNECTED) {
-//     if (wifiAttemptCount > 0) {
-//       DEBUG_PRINTLN("Attempting WiFi connection...");
-//       WiFi.begin();  // Use saved credentials
-//       wifiAttemptCount--;
-//       DEBUG_PRINTLN("Remaining WiFi attempts: " + String(wifiAttemptCount));
-//       vTaskDelay(pdMS_TO_TICKS(WIFI_ATTEMPT_DELAY));
-//     } else if (wifiWaitCount > 0) {
-//       wifiWaitCount--;
-//       DEBUG_PRINTLN("WiFi wait... retrying in a moment");
-//       DEBUG_PRINTLN("Remaining WiFi wait time: " + String(wifiWaitCount) + " seconds");
-//       vTaskDelay(pdMS_TO_TICKS(WIFI_WAIT_DELAY));
-//     } else {
-//       wifiAttemptCount = WIFI_ATTEMPT_COUNT;
-//       wifiWaitCount = WIFI_WAIT_COUNT;
-//       maxWifiAttempts--;
-//       if (maxWifiAttempts <= 0) {
-//         DEBUG_PRINTLN("Max WiFi attempt cycles exceeded, restarting...");
-//         ESP.restart();
-//       }
-//     }
-//   }
-// }
-
 void reconnectWiFi() {
-  leds[0] = CRGB::Red;
-  FastLED.show();
-
+  #if Fast_LED
+    leds[0] = CRGB::Red;
+    FastLED.show();
+  #endif
   if (WiFi.status() != WL_CONNECTED) {
     if (wifiAttemptCount > 0) {
       DEBUG_PRINTLN("Attempting WiFi connection...");
       WiFi.begin();  // Use saved credentials
       wifiAttemptCount--;
       DEBUG_PRINTLN("Remaining WiFi attempts: " + String(wifiAttemptCount));
-      // vTaskDelay(WIFI_ATTEMPT_DELAY / portTICK_PERIOD_MS);
       vTaskDelay(pdMS_TO_TICKS(WIFI_ATTEMPT_DELAY));
     } else if (wifiWaitCount > 0) {
       wifiWaitCount--;
@@ -69,6 +40,7 @@ void reconnectWiFi() {
     }
   }
 }
+
 //=========================================
 
 // Function to reconnect MQTT
@@ -372,71 +344,33 @@ void networkTask(void *param) {
 //================================
 
 //Start WiFi reset task
-// void wifiResetTask(void *param) {
-//   for (;;) {
-//     if (digitalRead(WIFI_RESET_BUTTON_PIN) == LOW) {
-//       unsigned long pressStartTime = millis();
-//       DEBUG_PRINTLN("Button Pressed....");
-
-//       while (digitalRead(WIFI_RESET_BUTTON_PIN) == LOW) {
-//         if (millis() - pressStartTime >= 5000) {
-//           DEBUG_PRINTLN("5 seconds holding time reached, starting WiFiManager...");
-//           #if Fast_LED
-//             leds[0] = CRGB::Green;
-//             FastLED.show();
-//           #endif
-//           vTaskSuspend(networkTaskHandle);
-//           vTaskSuspend(mainTaskHandle);
-//           wm.resetSettings();
-//           wm.autoConnect("DMA_AMR_V-5.0");
-//           ESP.restart();
-//         }
-//         vTaskDelay(pdMS_TO_TICKS(100));
-//       }
-//     }
-
-//     vTaskDelay(pdMS_TO_TICKS(100));
-//   }
-// }
-
-// Task for WiFi reset and WiFiManager setup
 void wifiResetTask(void *param) {
   for (;;) {
-    // Check if button is pressed (LOW state)
     if (digitalRead(WIFI_RESET_BUTTON_PIN) == LOW) {
-      unsigned long pressStartTime = millis(); // Record the time when the button is pressed
+      unsigned long pressStartTime = millis();
       DEBUG_PRINTLN("Button Pressed....");
 
-      // Wait for at least 5 seconds to confirm long press
       while (digitalRead(WIFI_RESET_BUTTON_PIN) == LOW) {
-        // Check if button is still pressed after 5 seconds
         if (millis() - pressStartTime >= 5000) {
           DEBUG_PRINTLN("5 seconds holding time reached, starting WiFiManager...");
-
-          leds[0] = CRGB::Green;
-          FastLED.show();
-
-          // Suspend other tasks to avoid conflict
+          #if Fast_LED
+            leds[0] = CRGB::Green;
+            FastLED.show();
+          #endif
           vTaskSuspend(networkTaskHandle);
           vTaskSuspend(mainTaskHandle);
-
-          DEBUG_PRINTLN("Starting WiFiManager for new WiFi setup...");
-          WiFiManager wifiManager;
-          wifiManager.resetSettings();  // Clear previous settings
-          wifiManager.autoConnect("DMA_EnergyMeter"); // Start AP for new configuration
-
-          DEBUG_PRINTLN("New WiFi credentials set, restarting...");
-          ESP.restart();  // Restart after WiFi configuration
+          wm.resetSettings();
+          wm.autoConnect("DMA_AMR_V-5.0");
+          ESP.restart();
         }
-
-        vTaskDelay(pdMS_TO_TICKS(100));  // Small delay to avoid overwhelming the system
+        vTaskDelay(pdMS_TO_TICKS(100));
       }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));  // Check every 100 ms
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
-//=================================
+//=============================
 
 // OTA Update Task
 void otaTask(void *parameter) {
