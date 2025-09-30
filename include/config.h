@@ -28,7 +28,7 @@ bool setWaterValueToShowLCD = false;
 
 int prevAvgValue = -1;
 int prevK = -1;
-unsigned long prevTotalWater = -1;
+unsigned long prevTotalWater = 0;
 
 unsigned long backlightTimer = 0;
 bool backlightOn = false;

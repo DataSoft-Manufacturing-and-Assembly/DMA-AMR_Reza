@@ -145,7 +145,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   else if (message.startsWith("set:water=")) {
     int equalIndex = message.indexOf('=');
     if (equalIndex > 0) {
-      unsigned long setTotalWater = message.substring(equalIndex + 1).toInt();
+      
+      unsigned long setTotalWater = strtoul(message.substring(equalIndex + 1).c_str(), NULL, 10);
 
       lastSetWaterinLiter = setTotalWater;
       totalWaterinLiter = setTotalWater;
@@ -157,6 +158,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       preferences.putULong("lastSetWaterinLiter", lastSetWaterinLiter);
       preferences.putULong("pulseCount", pulseCount);
       preferences.end();
+
 
       Serial.println("Water reset: total=" + String(totalWaterinLiter) +
                     " lastSet=" + String(lastSetWaterinLiter) +
@@ -442,14 +444,13 @@ void mainTask(void *param) {
           pulseCount++;
           totalWaterinLiter += K;
 
+          preferences.begin("WaterInfo", false);
+          preferences.putULong("totalWaterinLiter", totalWaterinLiter);
+          preferences.putULong("pulseCount", pulseCount);
+          preferences.end();
+
           // Validation: match expected value
-          if (totalWaterinLiter == lastSetWaterinLiter + (pulseCount * K)) {
-            preferences.begin("WaterInfo", false);
-            preferences.putULong("totalWaterinLiter", totalWaterinLiter);
-            preferences.putULong("pulseCount", pulseCount);
-            preferences.end();
-          }
-          else {
+          if (totalWaterinLiter != lastSetWaterinLiter + (pulseCount * K)) {
             Serial.println("Warning: totalWaterinLiter mismatch!");
             if(client.connected()) {
               char message[64];  
@@ -475,7 +476,7 @@ void mainTask(void *param) {
             unsigned long m3 = totalWaterinLiter / 1000;
             unsigned long remainder = (totalWaterinLiter % 1000) / 10;
 
-            lcd.clear();
+            // lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("TW: ");
             lcd.setCursor(3, 0);
@@ -494,13 +495,13 @@ void mainTask(void *param) {
           pulseCount++;
           totalWaterinLiter += K;
 
-          if (totalWaterinLiter == lastSetWaterinLiter + (pulseCount * K)) {
-            preferences.begin("WaterInfo", false);
-            preferences.putULong("totalWaterinLiter", totalWaterinLiter);
-            preferences.putULong("pulseCount", pulseCount);
-            preferences.end();
-          }
-          else {
+          preferences.begin("WaterInfo", false);
+          preferences.putULong("totalWaterinLiter", totalWaterinLiter);
+          preferences.putULong("pulseCount", pulseCount);
+          preferences.end();
+
+          // Validation: match expected value
+          if (totalWaterinLiter != lastSetWaterinLiter + (pulseCount * K)) {
             Serial.println("Warning: totalWaterinLiter mismatch!");
             if(client.connected()) {
               char message[64];  
@@ -526,7 +527,7 @@ void mainTask(void *param) {
             unsigned long m3 = totalWaterinLiter / 1000;
             unsigned long remainder = (totalWaterinLiter % 1000) / 10;
 
-            lcd.clear();
+            // lcd.clear();
             lcd.setCursor(0, 0);
             lcd.print("TW: ");
             lcd.setCursor(3, 0);
@@ -551,7 +552,7 @@ void mainTask(void *param) {
         unsigned long m3 = totalWaterinLiter / 1000;
         unsigned long remainder = (totalWaterinLiter % 1000) / 10;
 
-        lcd.clear();
+        // lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("TW: ");
         lcd.setCursor(3, 0);
@@ -615,9 +616,9 @@ void setup() {
 
   // --- Preferences for Water Info ---
   preferences.begin("WaterInfo", false);
-  totalWaterinLiter = preferences.getULong("totalWaterinLiter", 0UL);
-  lastSetWaterinLiter = preferences.getULong("lastSetWaterinLiter", totalWaterinLiter);
-  pulseCount = preferences.getULong("pulseCount", 0UL);
+  totalWaterinLiter = preferences.getULong("totalWaterinLiter", 0);
+  lastSetWaterinLiter = preferences.getULong("lastSetWaterinLiter", 0);
+  pulseCount = preferences.getULong("pulseCount", 0);
   K = preferences.getInt("flow", 100);
   NC_Sensor = preferences.getBool("nc_sensor", false);
   preferences.end();
