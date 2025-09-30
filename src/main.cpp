@@ -370,13 +370,17 @@ void mainTask(void *param) {
       vTaskDelay(pdMS_TO_TICKS(2000)); // startup pause
 
       // Display initial sensor data
+      unsigned long m3 = totalWaterinLiter / 1000;
+      unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("TW: ");
       lcd.setCursor(3, 0);
-      lcd.print(totalWaterinLiter / 1000);  // m³ integer part
+      lcd.print(m3);
       lcd.print(".");
-      lcd.print(totalWaterinLiter % 1000);  // remainder liters
+      if (remainder < 10) lcd.print("0"); // ensures 2 digits
+      lcd.print(remainder);
       lcd.print(" m3");
 
       lcd.setCursor(0, 1);
@@ -623,14 +627,17 @@ void setup() {
 
   vTaskDelay(pdMS_TO_TICKS(2000));
 
+  unsigned long m3 = totalWaterinLiter / 1000;
+  unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("TW:            ");
-  prevTotalWater = totalWaterinLiter;
+  lcd.print("TW: ");
   lcd.setCursor(3, 0);
-  lcd.print(totalWaterinLiter / 1000);      // m³
+  lcd.print(m3);
   lcd.print(".");
-  lcd.print(totalWaterinLiter % 1000);      // remaining liters
+  if (remainder < 10) lcd.print("0"); // ensures 2 digits
+  lcd.print(remainder);
   lcd.print(" m3");
 
   lcd.setCursor(0, 1);
