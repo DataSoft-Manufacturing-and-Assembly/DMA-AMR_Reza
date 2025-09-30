@@ -20,7 +20,7 @@ void sendHeartbeat() {
             DEVICE_ID,
             acLineState ? 1 : 0,
             NC_Sensor ? 1 : 0,
-            totalWaterinLiter,
+            twLiter,
             K);
     client.publish(mqtt_pub_topic, hb_data);
     DEBUG_PRINTLN("Heartbeat sent Successfully");
@@ -131,9 +131,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (equalIndex > 0) {
       NC_Sensor = message.substring(equalIndex + 1).toInt() != 0;
 
-      preferences.begin("WaterInfo", false);
+      preferences.begin("water_info", false);
       preferences.putBool("nc_sensor", NC_Sensor);
       preferences.end();
+      delay(100);
 
       Serial.print("Saved nc_sensor: ");
       Serial.println(NC_Sensor ? "true" : "false");
@@ -148,21 +149,24 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       
       unsigned long setTotalWater = strtoul(message.substring(equalIndex + 1).c_str(), NULL, 10);
 
-      lastSetWaterinLiter = setTotalWater;
-      totalWaterinLiter = setTotalWater;
-      pulseCount = 0;
+      lastTW = setTotalWater;
+      twLiter = setTotalWater;
+      pC = 0;
       setWaterValueToShowLCD = true;
 
-      preferences.begin("WaterInfo", false);
-      preferences.putULong("totalWaterinLiter", totalWaterinLiter);
-      preferences.putULong("lastSetWaterinLiter", lastSetWaterinLiter);
-      preferences.putULong("pulseCount", pulseCount);
+      preferences.begin("water_info", false);
+      preferences.putULong("twLiter", twLiter);
+      delay(50);
+      preferences.putULong("lastTW", lastTW);
+      delay(50);
+      preferences.putULong("pC", pC);
       preferences.end();
+      delay(100);
 
 
-      Serial.println("Water reset: total=" + String(totalWaterinLiter) +
-                    " lastSet=" + String(lastSetWaterinLiter) +
-                    " pulseCount=" + String(pulseCount));
+      Serial.println("Water reset: total=" + String(twLiter) +
+                    " lastSet=" + String(lastTW) +
+                    " pC=" + String(pC));
 
       sendHeartbeat();
     }
@@ -174,9 +178,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (equalIndex > 0) {
       K = message.substring(equalIndex + 1).toInt();
 
-      preferences.begin("WaterInfo", false);
+      preferences.begin("water_info", false);
       preferences.putInt("flow", K);
       preferences.end();
+      delay(100);
 
       Serial.println("Saved flow K: " + String(K));
 
@@ -194,7 +199,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   else if (message == "query:water") {
     if (client.connected()) {
       char waterData[32];
-      snprintf(waterData, sizeof(waterData), "%s,water:%lu", DEVICE_ID, totalWaterinLiter);
+      snprintf(waterData, sizeof(waterData), "%s,water:%lu", DEVICE_ID, twLiter);
       client.publish(mqtt_pub_topic, waterData);
       Serial.println("Sent water data: " + String(waterData));
     }
@@ -226,7 +231,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     snprintf(pingData, sizeof(pingData), "%s,%s,%s,%d,%d,%lu,%lu,%lu,%s",
             DEVICE_ID, WiFi.SSID().c_str(),
             WiFi.localIP().toString().c_str(), WiFi.RSSI(),
-            HB_INTERVAL,totalWaterinLiter,lastSetWaterinLiter,pulseCount,FW_VERSION);
+            HB_INTERVAL,twLiter,lastTW,pC,FW_VERSION);
     client.publish(mqtt_pub_topic, pingData);
     DEBUG_PRINTLN("Sent ping response to MQTT: " + String(pingData));
   }
@@ -372,8 +377,8 @@ void mainTask(void *param) {
       vTaskDelay(pdMS_TO_TICKS(2000)); // startup pause
 
       // Display initial sensor data
-      unsigned long m3 = totalWaterinLiter / 1000;
-      unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+      unsigned long m3 = twLiter / 1000;
+      unsigned long remainder = (twLiter % 1000) / 10;
 
       lcd.clear();
       lcd.setCursor(0, 0);
@@ -441,26 +446,28 @@ void mainTask(void *param) {
       if (!NC_Sensor) {  // NO sensor
         if (avgValue > SensorHighThreshold && !swt) {
           swt = true;
-          pulseCount++;
-          totalWaterinLiter += K;
+          pC++;
+          twLiter += K;
 
-          preferences.begin("WaterInfo", false);
-          preferences.putULong("totalWaterinLiter", totalWaterinLiter);
-          preferences.putULong("pulseCount", pulseCount);
+          preferences.begin("water_info", false);
+          preferences.putULong("twLiter", twLiter);
+          delay(50);
+          preferences.putULong("pC", pC);
           preferences.end();
+          delay(100);
 
           // Validation: match expected value
-          if (totalWaterinLiter != lastSetWaterinLiter + (pulseCount * K)) {
-            Serial.println("Warning: totalWaterinLiter mismatch!");
+          if (twLiter != lastTW + (pC * K)) {
+            Serial.println("Warning: twLiter mismatch!");
             if(client.connected()) {
               char message[64];  
-              snprintf(message, sizeof(message), "%s,Warning: totalWaterinLiter mismatch!", DEVICE_ID);  
+              snprintf(message, sizeof(message), "%s,Warning: twLiter mismatch!", DEVICE_ID);  
               client.publish(mqtt_pub_topic, message);
             }
           }
 
-          Serial.printf("Saved totalWaterinLiter: %lu\n", totalWaterinLiter);
-          Serial.printf("Pulse Count: %lu\n", pulseCount);
+          Serial.printf("Saved twLiter: %lu\n", twLiter);
+          Serial.printf("Pulse Count: %lu\n", pC);
 
           #if Fast_LED
             leds[0] = CRGB::Green;
@@ -470,11 +477,11 @@ void mainTask(void *param) {
             FastLED.show();
           #endif
 
-          if (totalWaterinLiter != prevTotalWater) {
-            prevTotalWater = totalWaterinLiter;
+          if (twLiter != prevTotalWater) {
+            prevTotalWater = twLiter;
 
-            unsigned long m3 = totalWaterinLiter / 1000;
-            unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+            unsigned long m3 = twLiter / 1000;
+            unsigned long remainder = (twLiter % 1000) / 10;
 
             // lcd.clear();
             lcd.setCursor(0, 0);
@@ -492,26 +499,28 @@ void mainTask(void *param) {
       } else {  // NC sensor
         if (avgValue < SensorLowThreshold && !swt) {
           swt = true;
-          pulseCount++;
-          totalWaterinLiter += K;
+          pC++;
+          twLiter += K;
 
-          preferences.begin("WaterInfo", false);
-          preferences.putULong("totalWaterinLiter", totalWaterinLiter);
-          preferences.putULong("pulseCount", pulseCount);
+          preferences.begin("water_info", false);
+          preferences.putULong("twLiter", twLiter);
+          delay(50);
+          preferences.putULong("pC", pC);
           preferences.end();
+          delay(100);
 
           // Validation: match expected value
-          if (totalWaterinLiter != lastSetWaterinLiter + (pulseCount * K)) {
-            Serial.println("Warning: totalWaterinLiter mismatch!");
+          if (twLiter != lastTW + (pC * K)) {
+            Serial.println("Warning: twLiter mismatch!");
             if(client.connected()) {
               char message[64];  
-              snprintf(message, sizeof(message), "%s,Warning: totalWaterinLiter mismatch!", DEVICE_ID);  
+              snprintf(message, sizeof(message), "%s,Warning: twLiter mismatch!", DEVICE_ID);  
               client.publish(mqtt_pub_topic, message);
             }
           }
 
-          Serial.printf("Saved totalWaterinLiter: %lu\n", totalWaterinLiter);
-          Serial.printf("Pulse Count: %lu\n", pulseCount);
+          Serial.printf("Saved twLiter: %lu\n", twLiter);
+          Serial.printf("Pulse Count: %lu\n", pC);
 
           #if Fast_LED
             leds[0] = CRGB::Green;
@@ -521,11 +530,11 @@ void mainTask(void *param) {
             FastLED.show();
           #endif
 
-          if (totalWaterinLiter != prevTotalWater) {
-            prevTotalWater = totalWaterinLiter;
+          if (twLiter != prevTotalWater) {
+            prevTotalWater = twLiter;
 
-            unsigned long m3 = totalWaterinLiter / 1000;
-            unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+            unsigned long m3 = twLiter / 1000;
+            unsigned long remainder = (twLiter % 1000) / 10;
 
             // lcd.clear();
             lcd.setCursor(0, 0);
@@ -546,11 +555,11 @@ void mainTask(void *param) {
     // Update water value if set command received
     if (setWaterValueToShowLCD) {
       setWaterValueToShowLCD = false;
-      if (totalWaterinLiter != prevTotalWater) {
-        prevTotalWater = totalWaterinLiter;
+      if (twLiter != prevTotalWater) {
+        prevTotalWater = twLiter;
         
-        unsigned long m3 = totalWaterinLiter / 1000;
-        unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+        unsigned long m3 = twLiter / 1000;
+        unsigned long remainder = (twLiter % 1000) / 10;
 
         // lcd.clear();
         lcd.setCursor(0, 0);
@@ -597,21 +606,23 @@ void setup() {
 
   DEVICE_ID = device_id.c_str();
   preferences.end();
+  delay(100);
 
   DEBUG_PRINT("Device ID: ");
   DEBUG_PRINTLN(DEVICE_ID);
 
   // --- Preferences for Water Info ---
-  preferences.begin("WaterInfo", false);
-  totalWaterinLiter = preferences.getULong("totalWaterinLiter", 99);
-  lastSetWaterinLiter = preferences.getULong("lastSetWaterinLiter", 99);
-  pulseCount = preferences.getULong("pulseCount", 99);
+  preferences.begin("water_info", false);
+  twLiter = preferences.getULong("twLiter", 99);
+  lastTW = preferences.getULong("lastTW", 99);
+  pC = preferences.getULong("pC", 99);
   K = preferences.getInt("flow", 100);
   NC_Sensor = preferences.getBool("nc_sensor", false);
   preferences.end();
+  delay(100);
 
-  Serial.printf("Restored: totalWater=%lu, lastSetWater=%lu, pulseCount=%lu, K=%d, NC_Sensor=%s\n",
-                totalWaterinLiter, lastSetWaterinLiter, pulseCount, K, NC_Sensor ? "true" : "false");
+  Serial.printf("Restored: totalWater=%lu, lastSetWater=%lu, pC=%lu, K=%d, NC_Sensor=%s\n",
+                twLiter, twLiter, twLiter, K, NC_Sensor ? "true" : "false");
 
   // --- FastLED Init ---
   #if Fast_LED
@@ -659,8 +670,8 @@ void setup() {
 
   vTaskDelay(pdMS_TO_TICKS(2000));
 
-  unsigned long m3 = totalWaterinLiter / 1000;
-  unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+  unsigned long m3 = twLiter / 1000;
+  unsigned long remainder = (twLiter % 1000) / 10;
 
   lcd.clear();
   lcd.setCursor(0, 0);

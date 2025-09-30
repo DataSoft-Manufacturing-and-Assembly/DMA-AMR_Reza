@@ -19,9 +19,9 @@ int SensorLowThreshold = 1000;
 int avgValue = 0;
 bool swt = false;
 // float totalWater; //Total Water
-unsigned long totalWaterinLiter;
-unsigned long lastSetWaterinLiter;
-unsigned long pulseCount;
+unsigned long twLiter; // Today's Water in Liter
+unsigned long lastTW;
+unsigned long pC;
 int K = 100;
 bool NC_Sensor = false;
 bool setWaterValueToShowLCD = false;
