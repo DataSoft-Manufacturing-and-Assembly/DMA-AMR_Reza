@@ -236,6 +236,24 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     DEBUG_PRINTLN("Sent ping response to MQTT: " + String(pingData));
   }
 
+  // ----- Restart -------
+  else if (message == "restart") {
+    #if Fast_LED
+      leds[0] = CRGB::Red;
+      FastLED.show();
+      vTaskDelay(pdMS_TO_TICKS(250));
+      leds[0] = CRGB::Black;
+      FastLED.show();
+    #endif
+    if (client.connected()) {
+      char message[64];  
+      snprintf(message, sizeof(message), "%s,Restarting...", DEVICE_ID);  
+      client.publish(mqtt_pub_topic, message);
+    }
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    ESP.restart();
+  }
+
   // ----- OTA Update -----
   else if (message == "update_firmware") {
     #if Fast_LED
@@ -252,6 +270,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
   }
 }
+
 // ====================
 
 
