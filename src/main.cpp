@@ -601,6 +601,18 @@ void setup() {
   DEBUG_PRINT("Device ID: ");
   DEBUG_PRINTLN(DEVICE_ID);
 
+  // --- Preferences for Water Info ---
+  preferences.begin("WaterInfo", false);
+  totalWaterinLiter = preferences.getULong("totalWaterinLiter", 99);
+  lastSetWaterinLiter = preferences.getULong("lastSetWaterinLiter", 99);
+  pulseCount = preferences.getULong("pulseCount", 99);
+  K = preferences.getInt("flow", 100);
+  NC_Sensor = preferences.getBool("nc_sensor", false);
+  preferences.end();
+
+  Serial.printf("Restored: totalWater=%lu, lastSetWater=%lu, pulseCount=%lu, K=%d, NC_Sensor=%s\n",
+                totalWaterinLiter, lastSetWaterinLiter, pulseCount, K, NC_Sensor ? "true" : "false");
+
   // --- FastLED Init ---
   #if Fast_LED
     FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
@@ -613,18 +625,6 @@ void setup() {
   pinMode(Analog_Pin, INPUT);
   pinMode(AC_LINE_PIN, INPUT);
   pinMode(LCD_BACKLIGHT_PIN, INPUT_PULLUP);
-
-  // --- Preferences for Water Info ---
-  preferences.begin("WaterInfo", false);
-  totalWaterinLiter = preferences.getULong("totalWaterinLiter", 0);
-  lastSetWaterinLiter = preferences.getULong("lastSetWaterinLiter", 0);
-  pulseCount = preferences.getULong("pulseCount", 0);
-  K = preferences.getInt("flow", 100);
-  NC_Sensor = preferences.getBool("nc_sensor", false);
-  preferences.end();
-
-  Serial.printf("Restored: totalWater=%lu, lastSetWater=%lu, pulseCount=%lu, K=%d, NC_Sensor=%s\n",
-                totalWaterinLiter, lastSetWaterinLiter, pulseCount, K, NC_Sensor ? "true" : "false");
 
 
   // --- Initialize Raw Buffer & avgValue ---
