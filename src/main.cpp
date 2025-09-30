@@ -221,10 +221,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       FastLED.show();
     #endif
     char pingData[100];
-    snprintf(pingData, sizeof(pingData), "%s,%s,%s,%d,%d,%lu,%lu,%s",
+    snprintf(pingData, sizeof(pingData), "%s,%s,%s,%d,%d,%lu,%lu,%lu,%s",
             DEVICE_ID, WiFi.SSID().c_str(),
             WiFi.localIP().toString().c_str(), WiFi.RSSI(),
-            HB_INTERVAL,lastSetWaterinLiter,pulseCount,FW_VERSION);
+            HB_INTERVAL,totalWaterinLiter,lastSetWaterinLiter,pulseCount,FW_VERSION);
     client.publish(mqtt_pub_topic, pingData);
     DEBUG_PRINTLN("Sent ping response to MQTT: " + String(pingData));
   }
@@ -391,11 +391,14 @@ void mainTask(void *param) {
       lcd.print(avgValueBuffer);
 
       lcd.setCursor(9, 1);
-      lcd.print(" K:");
-      char kBuffer[6];
-      snprintf(kBuffer, sizeof(kBuffer), "%-4d", K);
-      lcd.setCursor(12, 1);
-      lcd.print(kBuffer);
+      lcd.print(" ST:");
+
+      // Print "NC" or "NO" based on boolean
+      if (NC_Sensor) {
+          lcd.print("NC");
+      } else {
+          lcd.print("NO");
+      }
 
       backlightOn = true;
       backlightTimer = millis();
@@ -448,6 +451,11 @@ void mainTask(void *param) {
           }
           else {
             Serial.println("Warning: totalWaterinLiter mismatch!");
+            if(client.connected()) {
+              char message[64];  
+              snprintf(message, sizeof(message), "%s,Warning: totalWaterinLiter mismatch!", DEVICE_ID);  
+              client.publish(mqtt_pub_topic, message);
+            }
           }
 
           Serial.printf("Saved totalWaterinLiter: %lu\n", totalWaterinLiter);
@@ -463,12 +471,18 @@ void mainTask(void *param) {
 
           if (totalWaterinLiter != prevTotalWater) {
             prevTotalWater = totalWaterinLiter;
+
+            unsigned long m3 = totalWaterinLiter / 1000;
+            unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+
+            lcd.clear();
             lcd.setCursor(0, 0);
-            lcd.print("TW:            ");
+            lcd.print("TW: ");
             lcd.setCursor(3, 0);
-            lcd.print(totalWaterinLiter / 1000);
+            lcd.print(m3);
             lcd.print(".");
-            lcd.print(totalWaterinLiter % 1000);
+            if (remainder < 10) lcd.print("0"); // ensures 2 digits
+            lcd.print(remainder);
             lcd.print(" m3");
           }
         } else if (avgValue < SensorLowThreshold && swt) {
@@ -488,6 +502,11 @@ void mainTask(void *param) {
           }
           else {
             Serial.println("Warning: totalWaterinLiter mismatch!");
+            if(client.connected()) {
+              char message[64];  
+              snprintf(message, sizeof(message), "%s,Warning: totalWaterinLiter mismatch!", DEVICE_ID);  
+              client.publish(mqtt_pub_topic, message);
+            }
           }
 
           Serial.printf("Saved totalWaterinLiter: %lu\n", totalWaterinLiter);
@@ -503,12 +522,18 @@ void mainTask(void *param) {
 
           if (totalWaterinLiter != prevTotalWater) {
             prevTotalWater = totalWaterinLiter;
+
+            unsigned long m3 = totalWaterinLiter / 1000;
+            unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+
+            lcd.clear();
             lcd.setCursor(0, 0);
-            lcd.print("TW:            ");
+            lcd.print("TW: ");
             lcd.setCursor(3, 0);
-            lcd.print(totalWaterinLiter / 1000);
+            lcd.print(m3);
             lcd.print(".");
-            lcd.print(totalWaterinLiter % 1000);
+            if (remainder < 10) lcd.print("0"); // ensures 2 digits
+            lcd.print(remainder);
             lcd.print(" m3");
           }
         } else if (avgValue > SensorHighThreshold && swt) {
@@ -522,12 +547,18 @@ void mainTask(void *param) {
       setWaterValueToShowLCD = false;
       if (totalWaterinLiter != prevTotalWater) {
         prevTotalWater = totalWaterinLiter;
+        
+        unsigned long m3 = totalWaterinLiter / 1000;
+        unsigned long remainder = (totalWaterinLiter % 1000) / 10;
+
+        lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("TW:            ");
+        lcd.print("TW: ");
         lcd.setCursor(3, 0);
-        lcd.print(totalWaterinLiter / 1000);
+        lcd.print(m3);
         lcd.print(".");
-        lcd.print(totalWaterinLiter % 1000);
+        if (remainder < 10) lcd.print("0"); // ensures 2 digits
+        lcd.print(remainder);
         lcd.print(" m3");
       }
     }
@@ -649,12 +680,14 @@ void setup() {
   lcd.print(avgValueBuffer);
 
   lcd.setCursor(9, 1);
-  lcd.print(" K:");
-  prevK = K;
-  char kBuffer[6];
-  snprintf(kBuffer, sizeof(kBuffer), "%-4d", K);
-  lcd.setCursor(12, 1);
-  lcd.print(kBuffer);
+  lcd.print(" ST:");
+
+  // Print "NC" or "NO" based on boolean
+  if (NC_Sensor) {
+      lcd.print("NC");
+  } else {
+      lcd.print("NO");
+  }
 
   vTaskDelay(pdMS_TO_TICKS(3000));
   lcd.noBacklight();
