@@ -11,24 +11,31 @@ Preferences preferences; // Create a Preferences object
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
+#define FW_VERSION "AMR-V5.3.2"
+
+int SensorHighThreshold = 2500;
+int SensorLowThreshold = 1000;
+
 int avgValue = 0;
 bool swt = false;
-float totalWater; //Total Water
+// float totalWater; //Total Water
+unsigned long totalWaterinLiter;
+unsigned long lastSetWaterinLiter;
+unsigned long pulseCount;
 int K = 100;
 bool NC_Sensor = false;
-bool setWaterValue = false;
-bool setKValue = false;
+bool setWaterValueToShowLCD = false;
 
 int prevAvgValue = -1;
 int prevK = -1;
-float prevTotalWater = -1.0;
+unsigned long prevTotalWater = -1;
 
 unsigned long backlightTimer = 0;
 bool backlightOn = false;
-#define BACKLIGHT_TIME 10 * 1000
+#define BACKLIGHT_TIME 15 * 1000
 
 // Sampling setup
-const int sampleInterval = 500;     // sample every 500 ms
+const int sampleInterval = 400;     // sample every 500 ms
 unsigned long lastNow = 0; 
 int rawValue[10];            // buffer for 12 samples   
 
